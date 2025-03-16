@@ -34,3 +34,22 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+## Start/Stop Bastion
+
+You can stop the bastion when it is not in use:
+
+```PowerShell
+$instanceId = aws ec2 describe-instances `
+	--filters "Name=tag:Name,Values=main-vpc-bastion" `
+	--query "Reservations[0].Instances[0].InstanceId" `
+	--output text
+Write-Host "[$(Get-Date)] Instance ID: $instanceId"
+aws ec2 stop-instances --instance-ids $instanceId
+...
+aws ec2 start-instances --instance-ids $instanceId
+terraform apply
+```
+
+Note that the terraform apply is to update the Route53 record since the public
+IP address changes between reboots.
