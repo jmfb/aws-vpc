@@ -124,7 +124,7 @@ sudo amazon-linux-extras install postgresql14 -y
 
 You can tunnel through the bastion:
 ```sh
-ssh -i ./keys/vpc_bastion -L 5432:psql.buysse.link:5432 ec2-user@psql.buysse.link
+ssh -i ./keys/vpc_bastion -L 5432:psql.buysse.link:5432 ec2-user@bastion.buysse.link
 ```
 
 And then connect via PGAdmin or some other tool to `localhost:5432`.
