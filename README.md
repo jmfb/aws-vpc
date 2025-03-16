@@ -119,3 +119,12 @@ NOTE: This is the latest client version that appears to work on Amazon Linux 2.
 ```sh
 sudo amazon-linux-extras install postgresql14 -y
 ```
+
+## Connecting to Postgres
+
+You can tunnel through the bastion:
+```sh
+ssh -i ./keys/vpc_bastion -L 5432:psql.buysse.link:5432 ec2-user@psql.buysse.link
+```
+
+And then connect via PGAdmin or some other tool to `localhost:5432`.
