@@ -10,34 +10,34 @@ locals {
 resource "aws_ebs_volume" "psql" {
   availability_zone = local.availability_zone
   size              = 10
-  type              = "gp2"
+  type              = "gp3"
   tags              = local.psql_tags
 }
 
 resource "aws_security_group" "psql" {
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.default.id
   name        = local.psql_name_prefix
   description = "Main VPC PostgreSQL Security Group"
   tags        = local.psql_tags
 }
 
 resource "aws_vpc_security_group_ingress_rule" "psql_ssh" {
-  security_group_id            = aws_security_group.psql.id
-  referenced_security_group_id = aws_security_group.bastion.id
-  ip_protocol                  = "tcp"
-  from_port                    = 22
-  to_port                      = 22
+  security_group_id = aws_security_group.psql.id
+  ip_protocol       = "tcp"
+  from_port         = 22
+  to_port           = 22
+  cidr_ipv4         = "0.0.0.0/0"
   tags = merge(local.psql_tags, {
     Name = "${local.psql_name_prefix}-ssh"
   })
 }
 
 resource "aws_vpc_security_group_ingress_rule" "psql_db" {
-  security_group_id            = aws_security_group.psql.id
-  referenced_security_group_id = aws_security_group.bastion.id
-  ip_protocol                  = "tcp"
-  from_port                    = 5432
-  to_port                      = 5432
+  security_group_id = aws_security_group.psql.id
+  ip_protocol       = "tcp"
+  from_port         = 5432
+  to_port           = 5432
+  cidr_ipv4         = "0.0.0.0/0"
   tags = merge(local.psql_tags, {
     Name = "${local.psql_name_prefix}-db"
   })
@@ -50,14 +50,20 @@ resource "aws_vpc_security_group_egress_rule" "psql_all" {
   tags              = local.psql_tags
 }
 
+resource "aws_key_pair" "default" {
+  key_name   = local.psql_name_prefix
+  public_key = file("${var.user_profile}/.ssh/vpc_bastion.pub")
+  tags       = local.psql_tags
+}
+
 resource "aws_instance" "psql" {
   ami                         = data.aws_ami.linux_arm64.id
   instance_type               = "t4g.nano"
-  key_name                    = aws_key_pair.bastion.key_name
+  key_name                    = aws_key_pair.default.key_name
   vpc_security_group_ids      = [aws_security_group.psql.id]
-  associate_public_ip_address = false
+  associate_public_ip_address = true
   availability_zone           = local.availability_zone
-  subnet_id                   = aws_subnet.private.id
+  subnet_id                   = data.aws_subnet.default.id
   tags                        = local.psql_tags
 }
 
@@ -72,5 +78,5 @@ resource "aws_route53_record" "psql" {
   name    = local.psql_dns
   type    = "A"
   ttl     = 300
-  records = [aws_instance.psql.private_ip]
+  records = [aws_instance.psql.public_ip]
 }

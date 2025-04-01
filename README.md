@@ -15,12 +15,12 @@ Save this to your profile `.ssh` directory with the name `vpc_bastion` and use a
 Save the public/private key pair values to your BitWarden: `VPC Bastion Private Key`.
 If you need to recreate these, the file names are `vpc_bastion` for the private key and `vpc_bastion.pub` for the public key.
 
-## Connecting to Bastion
+## Connecting to EC2
 
 You must have the vpc_bastion private key file with correct permissions:
 ```sh
 chmod 600 ./vpc_bastion
-ssh -i ./vpc_bastion ec2-user@bastion.buysse.link
+ssh -i ./vpc_bastion ec2-user@psql.buysse.link
 ```
 
 ## Deployment
@@ -35,43 +35,12 @@ terraform plan
 terraform apply
 ```
 
-## Start/Stop Bastion
-
-You can stop the bastion when it is not in use:
-
-```PowerShell
-$instanceId = aws ec2 describe-instances `
-	--filters "Name=tag:Name,Values=main-vpc-bastion" `
-	--query "Reservations[0].Instances[0].InstanceId" `
-	--output text
-Write-Host "[$(Get-Date)] Instance ID: $instanceId"
-aws ec2 stop-instances --instance-ids $instanceId
-...
-aws ec2 start-instances --instance-ids $instanceId
-terraform apply
-```
-
-Note that the terraform apply is to update the Route53 record since the public
-IP address changes between reboots.
-
 ## PostgreSQL Setup
-
-Every time a new Bastion is spun up, you will need to create the private key:
-```sh
-mkdir -p ./keys
-vim ./keys/vpc_bastion
-# ...Paste the VPC bastion private key and save the file...
-chmod 600 ./keys/vpc_bastion
-```
-
-Then just SSH into the PSQL instance from the bastion:
-```sh
-ssh -i ./keys/vpc_bastion ec2-user@psql.buysse.link
-```
 
 Run the following to install docker, start it, set it up for restart, and not require sudo.
 ```sh
-sudo amazon-linux-extras install docker -y
+sudo yum update -y
+sudo yum install -y docker
 sudo service docker start
 sudo systemctl enable docker
 sudo usermod -a -G docker ec2-user
@@ -102,29 +71,15 @@ mkdir -p /mnt/psql_data/data
 ```
 
 And then run the specified version of postgres with the attached data volume:
+NOTE: You may need to disconnect and reconnect for permissions to take effect.
 ```sh
 # TODO: psql_password=... password from BitWarden
 docker run -d \
 	--name postgres-db \
 	-p 5432:5432 \
 	-e POSTGRES_USER=postgres \
-	-e POSTGRES_PASSWORD=$pgsql_password \
+	-e POSTGRES_PASSWORD=$psql_password \
 	-v /mnt/psql_data/data:/var/lib/postgresql/data \
 	--restart unless-stopped \
 	postgres:17.4
 ```
-
-You can install the `psql` client using the following command:
-NOTE: This is the latest client version that appears to work on Amazon Linux 2.
-```sh
-sudo amazon-linux-extras install postgresql14 -y
-```
-
-## Connecting to Postgres
-
-You can tunnel through the bastion:
-```sh
-ssh -i ./keys/vpc_bastion -L 5432:psql.buysse.link:5432 ec2-user@bastion.buysse.link
-```
-
-And then connect via PGAdmin or some other tool to `localhost:5432`.
